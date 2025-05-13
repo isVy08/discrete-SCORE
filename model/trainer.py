@@ -10,7 +10,8 @@ def find_leaf(model, xt, t):
     num_nodes = xt.shape[1]
     for i in range(num_nodes):
         logits = logprob[:, i, :]
-        score = torch.sum( (logits ** 2) * logits.exp(), dim=1) - torch.sum(logits * logits.exp(), dim=1) ** 2
+        # score = torch.sum(logits * logits.exp(), dim=1) # entropy
+        score = torch.sum( (logits ** 2) * logits.exp(), dim=1) - torch.sum(logits * logits.exp(), dim=1) ** 2 # variance
         values = torch.unique(xt[:, i], return_counts=False)
         score_per_node = torch.sum(score) / len(values)
         scores.append(score_per_node.item())
