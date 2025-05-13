@@ -1,1 +1,1 @@
-# Order-based Causal Discovery from Discrete Data
+# Ordering-based Causal Discovery via Generalized Score Matching
