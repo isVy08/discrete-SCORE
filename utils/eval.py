@@ -1,13 +1,15 @@
 import os
 import random
-
 import numpy as np
-# import tensorflow as tf
 import torch
 import copy
 import pandas as pd
 import networkx as nx
-
+from causallearn.graph.GeneralGraph import GeneralGraph
+from causallearn.graph.GraphNode import GraphNode
+from causallearn.graph.AdjacencyConfusion import AdjacencyConfusion
+from causallearn.graph.ArrowConfusion import ArrowConfusion
+from causallearn.graph.SHD import SHD
 
 def set_seed(seed):
     """Set random seed for reproducibility.
@@ -124,28 +126,63 @@ def to_dag(B, graph_thres):
 
     return B_processed_bin
 
+def adjmat_to_cpdag_obj(adj_mat, is_dag=True):
+    '''
+    adjmat: adjacency matrix for dag or cpdag
+    '''
+    nodes = [GraphNode('X' + str(i + 1)) for i in range(adj_mat.shape[0])]
+    cpdag = GeneralGraph(nodes)
+    if is_dag:
+        G = np.zeros_like(adj_mat)
+        for i in range(adj_mat.shape[0]):
+            for j in range(adj_mat.shape[0]):
+                if adj_mat[i, j] == 1 and adj_mat[j, i] == 0:
+                    G[i,j] = -1
+                    G[j,i] = 1
+                elif adj_mat[j, i] == 1 and adj_mat[i, j] == 0:
+                    G[j,i] = -1
+                    G[i,j] = 1
+                elif adj_mat[i, j] == adj_mat[j, i] == 1: 
+                    G[j,i] = G[i,j] = -1
+        adj_mat = G
+    
+    cpdag.graph = adj_mat
+    return cpdag
+
+def cpdag_to_dag(cpdag):
+    dag = np.zeros_like(cpdag)
+    for i in range(dag.shape[0] - 1):
+        for j in range(i, dag.shape[0]):
+            if cpdag[j,i] == 1 and cpdag[i,j] == -1:    # i -> j
+                dag[i,j] = 1
+            elif cpdag[i,j] == 1 and cpdag[j,i] == -1:  # i <- j
+                dag[j,i] = 1
+    return dag
+
 class MetricsCPDAG(object):
     def __init__(self, B_est, B_true):
 
-        from causallearn.utils.DAG2CPDAG import dag2cpdag
-        from causallearn.graph.AdjacencyConfusion import AdjacencyConfusion
-        from causallearn.graph.SHD import SHD
-
+        B_true = adjmat_to_cpdag_obj(B_true)
+        shd = SHD(B_true, B_est).get_shd()
+        adj = AdjacencyConfusion(B_true, B_est)
+        adjPrec = adj.get_adj_precision()
+        adjRec = adj.get_adj_recall()
         
-        truth_cpdag = dag2cpdag(B_true)
         
-        shd = SHD(truth_cpdag, B_est).get_shd()
-        adj = AdjacencyConfusion(truth_cpdag, B_est)
-        precision = adj.get_adj_precision()
-        recall = adj.get_adj_recall()
-        F1 = 2*(recall*precision)/(recall+precision)
-        F1 = np.round(F1, 5)
+        adjF1 = 2*(adjRec*adjPrec)/(adjRec+adjPrec)
 
-        self.metrics = {'precision':precision, 'recall':recall, 'F1':F1, 'shd': shd}
+        arrow = ArrowConfusion(B_true, B_est)
+        arrowPrec = arrow.get_arrows_precision()
+        arrowRec = arrow.get_arrows_recall()
+        arrowF1 = 2*(arrowRec*arrowPrec)/(arrowRec+arrowPrec)
+
+        self.metrics = {'adjPrec':adjPrec, 'adjRec':adjRec, 'adjF1':adjF1,  
+                        'arrowPrec': arrowPrec, 'arrowRec':arrowRec, 'arrowF1':arrowF1, 'shd': shd}
     
     def display(self):
-        for k, v in self.metrics.items():
-            print(k, ':', v)
+        for metric, value in self.metrics.items():
+            print(f'{metric} : {value:.5g}')
+
 
 
 class MetricsDAG(object):
@@ -358,20 +395,13 @@ class MetricsDAG(object):
 
         return precision, recall, F1
 
-def evaluate(B_est, B_true, return_edges = False, cpdag = False):
-    
-    if isinstance(B_est, torch.Tensor):
-        B_est = B_est.detach().cpu().numpy()
-    
-    if bool(return_edges):
-        print_edges(B_out, return_edges)
-        print_edges(B_true, return_edges)
-    
+def evaluate(B_est, B_true, weighted=False, cpdag = False):
     
     if cpdag:
         raw_result = MetricsCPDAG(B_est, B_true)
     else:
-        _, B_est = postprocess(B_est, graph_thres = 0.3)
+        if weighted:
+            _, B_est = postprocess(B_est, graph_thres = 0.3)
         print(B_est.max(), B_est.min())
         print('Is DAG?', is_dag(B_est))
         raw_result = MetricsDAG(B_est, B_true)
