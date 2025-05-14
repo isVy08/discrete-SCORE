@@ -34,9 +34,34 @@ def D_top(adj_matrix, ordering):
 
 def generate_forbidden_links(ordered_vertices):
     """
-    list of index of nodes, where i << j if i --> j
+    list of index of nodes, from leaf to root
+    """
+    links = {}
+    n = len(ordered_vertices)
+    for i in range(n): 
+        links[str(ordered_vertices[i])] = [str(j) for j in ordered_vertices[i+1:]]
+    return links
+
+def generate_accepted_links(ordered_vertices):
+    """
+    list of index of nodes, from leaf to root
     """
     links = {}
     for i in range(len(ordered_vertices)): 
-        links[str(ordered_vertices[i])] = [str(j) for j in ordered_vertices[i+1:]]
+        links[str(ordered_vertices[i])] = [str(j) for j in ordered_vertices[:i]]
     return links
+
+def full_DAG(top_order):
+    """
+    list of index of nodes, from root to leaf
+    """
+    d = len(top_order)
+    A = np.zeros((d,d))
+    for i, var in enumerate(top_order):
+        A[var, top_order[i+1:]] = 1
+    return A
+
+def fullAdj2Order(A):
+    order = list(A.sum(axis=1).argsort())
+    order.reverse()
+    return order
