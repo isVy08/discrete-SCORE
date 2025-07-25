@@ -32,11 +32,8 @@ class RealDataset:
         
         else: 
             from pgmpy.utils import get_example_model
-            # import pdb; pdb.set_trace()
-            # model = get_example_model(model=config_code)
-            code = config_code[:-1]
+            model = get_example_model(model=config_code)
             file_path = f'dataset/storage/{config_code}.csv'
-            model = get_example_model(model=code)
             if not os.path.isfile(file_path):
                 df = model.simulate(n_samples=int(5e3))
                 colnames = sorted([name for name in df.columns])
