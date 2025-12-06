@@ -47,7 +47,7 @@ ordering = []
 corrects = 0
 
 
-lr = 0.0001
+lr = 0.001
 
     
 
