@@ -11,7 +11,7 @@ def get_data_config(config_id, graph_type, seed, max_card, degree):
         'degree': degree, 
     }
 
-    i = int(str(config_id)[-1])
+    i = config_id
     config['d'] = num_nodes[i - 1]
     config['code'] = f'{graph_type}{config_id}-S{seed}'
     return config
