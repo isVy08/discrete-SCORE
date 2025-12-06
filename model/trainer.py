@@ -29,19 +29,15 @@ def find_leaf(model, xt, t, loader, device, method='entropy'):
     scores = []
     num_nodes = xt.shape[1]
     score_per_node = [0] * num_nodes
-    for i in range(num_nodes):
-        score = 0
-        for ids in loader: 
-            xt_batch = xt[ids, :].to(device)
-            t_batch = t[ids,].to(device)
-            logprob, _ = model(xt_batch, t_batch)
+    for ids in loader: 
+        xt_batch = xt[ids, :].to(device)
+        t_batch = t[ids,].to(device)
+        logprob, _ = model(xt_batch, t_batch)
+        for i in range(num_nodes):    
             logits = logprob[:, i, :]
-            _score_ = compute_score_sum(logits, method)
-            score += _score_
-
-    
-        values = torch.unique(xt[:, i], return_counts=False)
-        score_per_node[i] = score.item() / len(values)
+            score = compute_score_sum(logits, method)
+            values = torch.unique(xt[:, i], return_counts=False)
+            score_per_node[i] += score.item() / len(values)
 
     scores = score_per_node
     leaf = np.array(scores).argmin()
